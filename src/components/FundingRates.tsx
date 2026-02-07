@@ -1,4 +1,4 @@
-import { Zap, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react'
+import { Zap, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import type { FundingRate } from '../hooks/useWalletData'
 
 interface FundingRatesProps {
@@ -7,27 +7,13 @@ interface FundingRatesProps {
 }
 
 export function FundingRates({ rates, loading }: FundingRatesProps) {
-  const getTrendIcon = (trend: FundingRate['trend']) => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="w-4 h-4 text-emerald-400" />
-      case 'down':
-        return <TrendingDown className="w-4 h-4 text-rose-400" />
-      default:
-        return <Minus className="w-4 h-4 text-slate-400" />
-    }
-  }
-
-  const getTrendColor = (trend: FundingRate['trend']) => {
-    switch (trend) {
-      case 'up':
-        return 'text-emerald-400'
-      case 'down':
-        return 'text-rose-400'
-      default:
-        return 'text-slate-400'
-    }
-  }
+  // Find best long and short opportunities
+  const bestLong = rates.length > 0 
+    ? rates.reduce((best, r) => r.shortRate < best.shortRate ? r : best, rates[0])
+    : null
+  const bestShort = rates.length > 0
+    ? rates.reduce((best, r) => r.longRate < best.longRate ? r : best, rates[0])
+    : null
 
   return (
     <div className="glass rounded-2xl border border-slate-800/50 overflow-hidden">
@@ -39,18 +25,14 @@ export function FundingRates({ rates, loading }: FundingRatesProps) {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Funding Rates</h2>
-              <p className="text-xs text-slate-400">Real-time market data</p>
+              <p className="text-xs text-slate-400">Live from gTrade Oracle</p>
             </div>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-slate-500">
-            <RefreshCw className="w-3 h-3" />
-            <span>Live</span>
           </div>
         </div>
       </div>
 
       <div className="p-6">
-        {loading ? (
+        {loading && rates.length === 0 ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="animate-pulse flex items-center justify-between py-3">
@@ -61,14 +43,14 @@ export function FundingRates({ rates, loading }: FundingRatesProps) {
           </div>
         ) : rates.length === 0 ? (
           <div className="text-center text-slate-400 py-8">
-            No funding rate data available
+            Loading funding rates...
           </div>
         ) : (
           <div className="space-y-2">
             {rates.map((rate) => (
               <div
                 key={rate.pair}
-                className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-slate-800/30 transition-colors group"
+                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/30 transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 group-hover:bg-slate-700 transition-colors">
@@ -77,14 +59,20 @@ export function FundingRates({ rates, loading }: FundingRatesProps) {
                   <span className="font-medium text-white">{rate.pair}</span>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <span className={`font-mono font-semibold ${
-                    rate.rate > 0 ? 'text-emerald-400' : rate.rate < 0 ? 'text-rose-400' : 'text-slate-400'
-                  }`}>
-                    {rate.rate > 0 ? '+' : ''}{(rate.rate * 100).toFixed(4)}%
-                  </span>
-                  <div className={`flex items-center gap-1 ${getTrendColor(rate.trend)}`}>
-                    {getTrendIcon(rate.trend)}
+                <div className="flex items-center gap-4">
+                  {/* Long rate */}
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block">Long</span>
+                    <span className={`font-mono text-sm ${rate.longRate < 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {rate.longRate > 0 ? '+' : ''}{rate.longRate.toFixed(2)}%
+                    </span>
+                  </div>
+                  {/* Short rate */}
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block">Short</span>
+                    <span className={`font-mono text-sm ${rate.shortRate < 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {rate.shortRate > 0 ? '+' : ''}{rate.shortRate.toFixed(2)}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -92,12 +80,33 @@ export function FundingRates({ rates, loading }: FundingRatesProps) {
           </div>
         )}
 
+        {/* Best opportunities */}
+        {bestLong && bestShort && (
+          <div className="mt-6 pt-4 border-t border-slate-800/50 space-y-2">
+            <p className="text-xs text-slate-500 mb-2">Best Opportunities:</p>
+            {bestLong.shortRate < 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-300">Long {bestLong.pair}</span>
+                <span className="text-emerald-400 font-mono">{bestLong.shortRate.toFixed(2)}% APR</span>
+              </div>
+            )}
+            {bestShort.longRate < 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <ArrowDownRight className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-300">Short {bestShort.pair}</span>
+                <span className="text-emerald-400 font-mono">{bestShort.longRate.toFixed(2)}% APR</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Info section */}
         <div className="mt-6 pt-4 border-t border-slate-800/50">
           <div className="bg-slate-800/30 rounded-lg p-3">
             <p className="text-xs text-slate-400 leading-relaxed">
-              <span className="text-amber-400 font-medium">Funding rates</span> are periodic payments between long and short traders. 
-              Positive rates mean longs pay shorts; negative rates mean shorts pay longs.
+              <span className="text-amber-400 font-medium">Negative rates</span> mean you GET PAID to hold that position. 
+              Strategy B (Funding Arb) hunts these opportunities.
             </p>
           </div>
         </div>

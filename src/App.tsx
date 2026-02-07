@@ -18,7 +18,6 @@ function App() {
     fundingRates,
     totalBalance,
     totalPnL,
-    winRate,
     refresh,
     loading
   } = useWalletData()
@@ -83,7 +82,7 @@ function App() {
               <span className="text-slate-400 text-sm">Total Balance</span>
             </div>
             <p className="text-3xl font-bold text-white">
-              ${loading ? '...' : totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <p className="text-xs text-slate-500 mt-1">Across all strategies</p>
           </div>
@@ -96,9 +95,9 @@ function App() {
               <span className="text-slate-400 text-sm">Total P&L</span>
             </div>
             <p className={`text-3xl font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {loading ? '...' : `${totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {totalPnL >= 0 ? '+' : ''}${totalPnL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Lifetime performance</p>
+            <p className="text-xs text-slate-500 mt-1">Since experiment start</p>
           </div>
 
           <div className="glass rounded-2xl p-6 border border-slate-800/50">
@@ -106,12 +105,10 @@ function App() {
               <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
                 <Activity className="w-5 h-5 text-purple-400" />
               </div>
-              <span className="text-slate-400 text-sm">Win Rate</span>
+              <span className="text-slate-400 text-sm">Active Strategies</span>
             </div>
-            <p className="text-3xl font-bold text-white">
-              {loading ? '...' : `${winRate.toFixed(1)}%`}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">Strategy accuracy</p>
+            <p className="text-3xl font-bold text-white">4</p>
+            <p className="text-xs text-slate-500 mt-1">All running on Sepolia</p>
           </div>
         </div>
 

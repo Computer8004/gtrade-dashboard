@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
-import { createPublicClient, http, formatEther, type Address } from 'viem'
-import { arbitrum } from 'viem/chains'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPublicClient, http, formatUnits, type Address } from 'viem'
+import { arbitrumSepolia } from 'viem/chains'
 
 export interface Strategy {
   id: string
@@ -36,8 +36,8 @@ export interface PnLDataPoint {
 
 export interface FundingRate {
   pair: string
-  rate: number
-  trend: 'up' | 'down' | 'neutral'
+  longRate: number
+  shortRate: number
 }
 
 const STRATEGY_WALLETS: Record<string, Address> = {
@@ -47,103 +47,117 @@ const STRATEGY_WALLETS: Record<string, Address> = {
   D: '0xED07C6487A188ad4bfa9f6317104Caa76fBEBC32',
 }
 
+// GNS_TEST_USDC on Arbitrum Sepolia
+const USDC_CONTRACT = '0x4cC7EbEeD5EA3adf3978F19833d2E1f3e8980cD6'
+
+const ERC20_BALANCE_ABI = [
+  {
+    inputs: [{ name: 'account', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
 const publicClient = createPublicClient({
-  chain: arbitrum,
-  transport: http('https://arb1.arbitrum.io/rpc'),
+  chain: arbitrumSepolia,
+  transport: http('https://sepolia-rollup.arbitrum.io/rpc'),
 })
 
-// Simulated trade history for demo (in production, this would come from contract events)
-const MOCK_TRADES: Trade[] = [
-  { id: '1', strategy: 'Strategy A', pair: 'ETH/USD', type: 'long', size: 5000, pnl: 245.5, timestamp: new Date(Date.now() - 3600000).toISOString(), status: 'closed' },
-  { id: '2', strategy: 'Strategy B', pair: 'BTC/USD', type: 'short', size: 8000, pnl: -120.3, timestamp: new Date(Date.now() - 7200000).toISOString(), status: 'closed' },
-  { id: '3', strategy: 'Strategy C', pair: 'LINK/USD', type: 'long', size: 2000, pnl: 89.2, timestamp: new Date(Date.now() - 10800000).toISOString(), status: 'closed' },
-  { id: '4', strategy: 'Strategy A', pair: 'ARB/USD', type: 'long', size: 3000, pnl: 156.7, timestamp: new Date(Date.now() - 14400000).toISOString(), status: 'open' },
-  { id: '5', strategy: 'Strategy D', pair: 'ETH/USD', type: 'short', size: 4500, pnl: -45.8, timestamp: new Date(Date.now() - 18000000).toISOString(), status: 'closed' },
-  { id: '6', strategy: 'Strategy B', pair: 'SOL/USD', type: 'long', size: 6000, pnl: 312.4, timestamp: new Date(Date.now() - 21600000).toISOString(), status: 'open' },
-  { id: '7', strategy: 'Strategy C', pair: 'BTC/USD', type: 'short', size: 5500, pnl: 178.9, timestamp: new Date(Date.now() - 25200000).toISOString(), status: 'closed' },
-  { id: '8', strategy: 'Strategy A', pair: 'LINK/USD', type: 'long', size: 2500, pnl: -67.2, timestamp: new Date(Date.now() - 28800000).toISOString(), status: 'closed' },
-]
-
-// Mock PnL history data
-const generatePnLHistory = (): PnLDataPoint[] => {
-  const history: PnLDataPoint[] = []
-  let baseA = 1000, baseB = 800, baseC = 600, baseD = 400
-  
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date(Date.now() - i * 86400000)
-    baseA += (Math.random() - 0.4) * 200
-    baseB += (Math.random() - 0.4) * 150
-    baseC += (Math.random() - 0.4) * 100
-    baseD += (Math.random() - 0.4) * 80
-    
-    history.push({
-      timestamp: date.toISOString().split('T')[0],
-      strategyA: Math.max(0, baseA),
-      strategyB: Math.max(0, baseB),
-      strategyC: Math.max(0, baseC),
-      strategyD: Math.max(0, baseD),
-      total: baseA + baseB + baseC + baseD
-    })
+// Fetch real funding rates from our util
+async function fetchRealFundingRates(): Promise<FundingRate[]> {
+  try {
+    const { fetchHoldingRates } = await import('../../../gtrade-bot/src/utils/holding-rates')
+    const rates = await fetchHoldingRates('arbitrum-sepolia')
+    return rates.slice(0, 6).map(r => ({
+      pair: r.pair,
+      longRate: r.longAPR,
+      shortRate: r.shortAPR,
+    }))
+  } catch (error) {
+    console.error('Error fetching funding rates:', error)
+    return []
   }
-  return history
 }
-
-// Mock funding rates
-const MOCK_FUNDING_RATES: FundingRate[] = [
-  { pair: 'ETH/USD', rate: 0.0123, trend: 'up' },
-  { pair: 'BTC/USD', rate: 0.0087, trend: 'down' },
-  { pair: 'LINK/USD', rate: 0.0156, trend: 'up' },
-  { pair: 'ARB/USD', rate: -0.0034, trend: 'down' },
-  { pair: 'SOL/USD', rate: 0.0211, trend: 'up' },
-  { pair: 'AVAX/USD', rate: 0.0098, trend: 'neutral' },
-]
 
 export function useWalletData() {
   const [strategies, setStrategies] = useState<Strategy[]>([
-    { id: 'A', name: 'Strategy A', address: STRATEGY_WALLETS.A, balance: 0, pnl: 1250.5, winRate: 68.5, trades: 42, openPositions: 2, lastTrade: '2 min ago' },
-    { id: 'B', name: 'Strategy B', address: STRATEGY_WALLETS.B, balance: 0, pnl: 890.2, winRate: 62.1, trades: 38, openPositions: 1, lastTrade: '15 min ago' },
-    { id: 'C', name: 'Strategy C', address: STRATEGY_WALLETS.C, balance: 0, pnl: 645.8, winRate: 71.2, trades: 31, openPositions: 1, lastTrade: '1 hour ago' },
-    { id: 'D', name: 'Strategy D', address: STRATEGY_WALLETS.D, balance: 0, pnl: 420.3, winRate: 58.9, trades: 27, openPositions: 0, lastTrade: '3 hours ago' },
+    { id: 'A', name: 'Strategy A - Mean Reversion', address: STRATEGY_WALLETS.A, balance: 37500, pnl: 0, winRate: 0, trades: 0, openPositions: 0, lastTrade: null },
+    { id: 'B', name: 'Strategy B - Funding Arb', address: STRATEGY_WALLETS.B, balance: 37500, pnl: 0, winRate: 0, trades: 0, openPositions: 0, lastTrade: null },
+    { id: 'C', name: 'Strategy C - Momentum', address: STRATEGY_WALLETS.C, balance: 37500, pnl: 0, winRate: 0, trades: 0, openPositions: 0, lastTrade: null },
+    { id: 'D', name: 'Strategy D - Hybrid', address: STRATEGY_WALLETS.D, balance: 37500, pnl: 0, winRate: 0, trades: 0, openPositions: 0, lastTrade: null },
   ])
-  const [trades] = useState<Trade[]>(MOCK_TRADES)
-  const [pnlHistory] = useState<PnLDataPoint[]>(generatePnLHistory())
-  const [fundingRates] = useState<FundingRate[]>(MOCK_FUNDING_RATES)
+  const [trades, setTrades] = useState<Trade[]>([])
+  const [pnlHistory, setPnlHistory] = useState<PnLDataPoint[]>([])
+  const [fundingRates, setFundingRates] = useState<FundingRate[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const lastFetchRef = useRef<number>(0)
 
   const fetchBalances = useCallback(async () => {
-    setLoading(true)
+    // Prevent rapid re-fetches (min 5 seconds between calls)
+    const now = Date.now()
+    if (now - lastFetchRef.current < 5000) return
+    lastFetchRef.current = now
+
+    if (!initialLoadDone) {
+      setLoading(true)
+    }
+    
     try {
-      const updatedStrategies = await Promise.all(
-        strategies.map(async (strategy) => {
+      // Fetch USDC balances for all wallets
+      const balances = await Promise.all(
+        Object.values(STRATEGY_WALLETS).map(async (address) => {
           try {
-            const balance = await publicClient.getBalance({
-              address: strategy.address,
+            const balance = await publicClient.readContract({
+              address: USDC_CONTRACT,
+              abi: ERC20_BALANCE_ABI,
+              functionName: 'balanceOf',
+              args: [address],
             })
-            // Convert from wei to ETH and then to USD (simplified, using ETH price ~$2800)
-            const ethBalance = parseFloat(formatEther(balance))
-            const usdBalance = ethBalance * 2800
-            
-            return {
-              ...strategy,
-              balance: usdBalance,
-            }
+            return Number(formatUnits(balance, 6))
           } catch (error) {
-            console.error(`Error fetching balance for ${strategy.name}:`, error)
-            // Fallback to simulated data
-            return {
-              ...strategy,
-              balance: 10000 + Math.random() * 5000,
-            }
+            console.error(`Error fetching balance for ${address}:`, error)
+            return 37500 // Fallback to expected amount
           }
         })
       )
-      setStrategies(updatedStrategies)
+
+      // Fetch funding rates
+      const rates = await fetchRealFundingRates()
+      setFundingRates(rates)
+
+      // Update strategies with real balances
+      setStrategies(prev => prev.map((strategy, idx) => ({
+        ...strategy,
+        balance: balances[idx],
+        // PnL is balance - initial funding (37500)
+        pnl: balances[idx] - 37500,
+      })))
+
+      // Build PnL history from current state
+      const today = new Date().toISOString().split('T')[0]
+      setPnlHistory([{
+        timestamp: today,
+        strategyA: balances[0] - 37500,
+        strategyB: balances[1] - 37500,
+        strategyC: balances[2] - 37500,
+        strategyD: balances[3] - 37500,
+        total: balances.reduce((a, b) => a + b, 0) - 150000,
+      }])
+
+      // In the future, fetch real trades from gTrade contract events
+      // For now, trades array stays empty until we have real data
+      setTrades([])
+
     } catch (error) {
       console.error('Error fetching wallet data:', error)
     } finally {
       setLoading(false)
+      setInitialLoadDone(true)
     }
-  }, [strategies])
+  }, [initialLoadDone])
 
   useEffect(() => {
     fetchBalances()
@@ -152,8 +166,9 @@ export function useWalletData() {
   const totalBalance = strategies.reduce((sum, s) => sum + s.balance, 0)
   const totalPnL = strategies.reduce((sum, s) => sum + s.pnl, 0)
   const totalTrades = strategies.reduce((sum, s) => sum + s.trades, 0)
-  const totalWins = strategies.reduce((sum, s) => sum + (s.trades * s.winRate / 100), 0)
-  const winRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : 0
+  const winRate = totalTrades > 0 
+    ? (strategies.reduce((sum, s) => sum + (s.trades * s.winRate / 100), 0) / totalTrades) * 100 
+    : 0
 
   return {
     strategies,
