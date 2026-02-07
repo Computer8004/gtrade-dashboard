@@ -5,11 +5,10 @@ import { TradeHistory } from './components/TradeHistory'
 import { PnLChart } from './components/PnLChart'
 import { FundingRates } from './components/FundingRates'
 import { useWalletData } from './hooks/useWalletData'
-import { Activity, TrendingUp, Wallet, Clock, RefreshCw } from 'lucide-react'
+import { Activity, TrendingUp, Wallet, Clock, RefreshCw, AlertCircle } from 'lucide-react'
 
 function App() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
-  const [isRefreshing, setIsRefreshing] = useState(false)
   
   const {
     strategies,
@@ -18,23 +17,20 @@ function App() {
     fundingRates,
     totalBalance,
     totalPnL,
+    loading,
+    error,
     refresh,
-    loading
   } = useWalletData()
 
-  // Auto-refresh every 30 seconds
+  // Update last refresh time when data changes
   useEffect(() => {
-    const interval = setInterval(() => {
-      handleRefresh()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    if (!loading) {
+      setLastUpdate(new Date())
+    }
+  }, [loading, strategies, trades])
 
   const handleRefresh = async () => {
-    setIsRefreshing(true)
     await refresh()
-    setLastUpdate(new Date())
-    setIsRefreshing(false)
   }
 
   return (
@@ -49,7 +45,7 @@ function App() {
               </div>
               <div>
                 <h1 className="text-xl font-bold gradient-text">gTrade Dashboard</h1>
-                <p className="text-xs text-slate-400">Live Strategy Monitoring</p>
+                <p className="text-xs text-slate-400">Live Strategy Monitoring • Arbitrum Sepolia</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -59,16 +55,26 @@ function App() {
               </div>
               <button
                 onClick={handleRefresh}
-                disabled={isRefreshing}
+                disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-all disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 <span className="text-sm">Refresh</span>
               </button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-rose-500/10 border-b border-rose-500/20 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 text-rose-400">
+            <AlertCircle className="w-4 h-4" />
+            <span className="text-sm">Error loading data. Retrying...</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -118,15 +124,26 @@ function App() {
             <div className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-purple-600 rounded-full"></div>
             Strategy Performance
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {strategies.map((strategy, index) => (
-              <StrategyCard
-                key={strategy.address}
-                strategy={strategy}
-                index={index}
-              />
-            ))}
-          </div>
+          {loading && strategies.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="glass rounded-xl p-5 border border-slate-800/50 animate-pulse">
+                  <div className="h-20 bg-slate-800/50 rounded-lg"></div>
+                  <div className="mt-4 h-8 bg-slate-800/50 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {strategies.map((strategy, index) => (
+                <StrategyCard
+                  key={strategy.address}
+                  strategy={strategy}
+                  index={index}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* PnL Chart */}
@@ -147,7 +164,7 @@ function App() {
       {/* Footer */}
       <footer className="border-t border-slate-800/50 py-6 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-slate-500">
-          <p>gTrade Dashboard • Auto-refresh every 30 seconds</p>
+          <p>gTrade Dashboard • Auto-refresh every 30 seconds • Data from Arbitrum Sepolia</p>
         </div>
       </footer>
     </div>

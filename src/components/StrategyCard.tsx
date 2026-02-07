@@ -90,6 +90,36 @@ export function StrategyCard({ strategy, index }: StrategyCardProps) {
           </span>
         </div>
       )}
+      
+      {/* Current Position Details */}
+      {strategy.currentPosition && (
+        <div className="mt-3 p-3 bg-slate-800/70 rounded-lg border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400">Active Trade</span>
+            <span className={`text-xs font-semibold ${strategy.currentPosition.direction === 'long' ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {strategy.currentPosition.direction.toUpperCase()}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="text-slate-500">Pair</span>
+              <p className="text-white font-medium">{strategy.currentPosition.pair}</p>
+            </div>
+            <div>
+              <span className="text-slate-500">Size</span>
+              <p className="text-white font-medium">${strategy.currentPosition.size.toFixed(0)}</p>
+            </div>
+            <div>
+              <span className="text-slate-500">Leverage</span>
+              <p className="text-white font-medium">{strategy.currentPosition.leverage}x</p>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-slate-700/50">
+            <span className="text-xs text-slate-500">Entry Price: </span>
+            <span className="text-xs text-white">${strategy.currentPosition.entryPrice.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
