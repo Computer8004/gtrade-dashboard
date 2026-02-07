@@ -1,0 +1,60 @@
+{
+  "timestamp": 1770434019080,
+  "strategies": [
+    {
+      "id": "A",
+      "name": "Mean Reversion (Baseline)",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    },
+    {
+      "id": "B",
+      "name": "Funding Arbitrage",
+      "trades": [
+        {
+          "id": "0-0",
+          "entryTime": 1770434018792,
+          "pair": "ETH/USD",
+          "direction": "long",
+          "entryPrice": 2075.4,
+          "size": 951.55
+        }
+      ],
+      "equityCurve": [],
+      "currentPosition": {
+        "pair": "ETH/USD",
+        "direction": "long",
+        "size": 951.55,
+        "leverage": 5,
+        "entryPrice": 2075.4
+      },
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 1
+    },
+    {
+      "id": "C",
+      "name": "Momentum Breakout",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    },
+    {
+      "id": "D",
+      "name": "Hybrid (Funding + Technicals)",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    }
+  ]
+}
