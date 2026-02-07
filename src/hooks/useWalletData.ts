@@ -50,6 +50,9 @@ const STRATEGY_WALLETS: Record<string, Address> = {
 // GNS_TEST_USDC on Arbitrum Sepolia
 const USDC_CONTRACT = '0x4cC7EbEeD5EA3adf3978F19833d2E1f3e8980cD6'
 
+// gTrade Diamond on Sepolia
+const GTRADE_DIAMOND = '0xd659a15812064C79E189fd950A189b15c75d3186'
+
 const ERC20_BALANCE_ABI = [
   {
     inputs: [{ name: 'account', type: 'address' }],
@@ -60,25 +63,70 @@ const ERC20_BALANCE_ABI = [
   },
 ] as const
 
+// ABI for fetching borrowing fee data
+const BORROWING_FEE_ABI = [
+  {
+    inputs: [
+      { name: 'collateralIndex', type: 'uint256' },
+      { name: 'pairIndex', type: 'uint256' }
+    ],
+    name: 'getPairBorrowingFeeParams',
+    outputs: [
+      { name: 'feePerSecond', type: 'uint256' },
+      { name: 'accFeeLong', type: 'uint256' },
+      { name: 'accFeeShort', type: 'uint256' },
+      { name: 'accLastUpdatedBlock', type: 'uint256' }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const
+
 const publicClient = createPublicClient({
   chain: arbitrumSepolia,
   transport: http('https://sepolia-rollup.arbitrum.io/rpc'),
 })
 
-// Fetch real funding rates from our util
+// Common pairs with their indices
+const COMMON_PAIRS = [
+  { name: 'BTC/USD', pairIndex: 0 },
+  { name: 'ETH/USD', pairIndex: 1 },
+  { name: 'LINK/USD', pairIndex: 2 },
+  { name: 'DOGE/USD', pairIndex: 4 },
+  { name: 'MATIC/USD', pairIndex: 5 },
+  { name: 'SOL/USD', pairIndex: 32 },
+]
+
+// Fetch funding rates directly from gTrade
 async function fetchRealFundingRates(): Promise<FundingRate[]> {
-  try {
-    const { fetchHoldingRates } = await import('../../../gtrade-bot/src/utils/holding-rates')
-    const rates = await fetchHoldingRates('arbitrum-sepolia')
-    return rates.slice(0, 6).map(r => ({
-      pair: r.pair,
-      longRate: r.longAPR,
-      shortRate: r.shortAPR,
-    }))
-  } catch (error) {
-    console.error('Error fetching funding rates:', error)
-    return []
+  const rates: FundingRate[] = []
+  const collateralIndex = 1 // DAI on Sepolia
+  const SECONDS_PER_YEAR = 365 * 24 * 60 * 60
+
+  for (const pair of COMMON_PAIRS) {
+    try {
+      const result = await publicClient.readContract({
+        address: GTRADE_DIAMOND,
+        abi: BORROWING_FEE_ABI,
+        functionName: 'getPairBorrowingFeeParams',
+        args: [BigInt(collateralIndex), BigInt(pair.pairIndex)],
+      }) as [bigint, bigint, bigint, bigint]
+
+      const [feePerSecond] = result
+      const feePerSecondNum = Number(feePerSecond) / 1e10
+      const apr = feePerSecondNum * SECONDS_PER_YEAR * 100
+
+      rates.push({
+        pair: pair.name,
+        longRate: apr,
+        shortRate: apr,
+      })
+    } catch (err) {
+      // Skip pairs that error
+    }
   }
+
+  return rates.sort((a, b) => Math.max(Math.abs(b.longRate), Math.abs(b.shortRate)) - Math.max(Math.abs(a.longRate), Math.abs(a.shortRate)))
 }
 
 export function useWalletData() {
@@ -96,7 +144,6 @@ export function useWalletData() {
   const lastFetchRef = useRef<number>(0)
 
   const fetchBalances = useCallback(async () => {
-    // Prevent rapid re-fetches (min 5 seconds between calls)
     const now = Date.now()
     if (now - lastFetchRef.current < 5000) return
     lastFetchRef.current = now
@@ -106,7 +153,6 @@ export function useWalletData() {
     }
     
     try {
-      // Fetch USDC balances for all wallets
       const balances = await Promise.all(
         Object.values(STRATEGY_WALLETS).map(async (address) => {
           try {
@@ -118,25 +164,20 @@ export function useWalletData() {
             })
             return Number(formatUnits(balance, 6))
           } catch (error) {
-            console.error(`Error fetching balance for ${address}:`, error)
-            return 37500 // Fallback to expected amount
+            return 37500
           }
         })
       )
 
-      // Fetch funding rates
       const rates = await fetchRealFundingRates()
       setFundingRates(rates)
 
-      // Update strategies with real balances
       setStrategies(prev => prev.map((strategy, idx) => ({
         ...strategy,
         balance: balances[idx],
-        // PnL is balance - initial funding (37500)
         pnl: balances[idx] - 37500,
       })))
 
-      // Build PnL history from current state
       const today = new Date().toISOString().split('T')[0]
       setPnlHistory([{
         timestamp: today,
@@ -147,10 +188,7 @@ export function useWalletData() {
         total: balances.reduce((a, b) => a + b, 0) - 150000,
       }])
 
-      // In the future, fetch real trades from gTrade contract events
-      // For now, trades array stays empty until we have real data
       setTrades([])
-
     } catch (error) {
       console.error('Error fetching wallet data:', error)
     } finally {
@@ -165,10 +203,6 @@ export function useWalletData() {
 
   const totalBalance = strategies.reduce((sum, s) => sum + s.balance, 0)
   const totalPnL = strategies.reduce((sum, s) => sum + s.pnl, 0)
-  const totalTrades = strategies.reduce((sum, s) => sum + s.trades, 0)
-  const winRate = totalTrades > 0 
-    ? (strategies.reduce((sum, s) => sum + (s.trades * s.winRate / 100), 0) / totalTrades) * 100 
-    : 0
 
   return {
     strategies,
@@ -177,7 +211,6 @@ export function useWalletData() {
     fundingRates,
     totalBalance,
     totalPnL,
-    winRate,
     loading,
     refresh: fetchBalances,
   }
