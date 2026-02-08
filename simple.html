@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gTrade Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f, #12121a);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { 
+            background: linear-gradient(135deg, #00d4ff, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .card {
+            background: rgba(18, 18, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(12px);
+        }
+        .card h3 { margin-bottom: 12px; color: #fff; }
+        .balance { font-size: 24px; font-weight: bold; color: #fff; }
+        .positions { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        .position { display: flex; justify-content: space-between; margin: 8px 0; }
+        .short { color: #f43f5e; }
+        .long { color: #10b981; }
+        .loading { text-align: center; padding: 40px; color: #64748b; }
+        .error { color: #f43f5e; text-align: center; padding: 20px; }
+        .last-update { text-align: right; color: #64748b; font-size: 12px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦀 gTrade Dashboard</h1>
+        <div class="last-update" id="lastUpdate">Loading...</div>
+        <div id="content">
+            <div class="loading">Loading dashboard data...</div>
+        </div>
+    </div>
+    
+    <script>
+        const DATA_URL = './dashboard-data.json';
+        
+        async function loadData() {
+            try {
+                const response = await fetch(DATA_URL + '?t=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                render(data);
+                document.getElementById('lastUpdate').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            } catch (err) {
+                document.getElementById('content').innerHTML = 
+                    '<div class="error">Error loading data: ' + err.message + '</div>';
+            }
+        }
+        
+        function render(data) {
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            
+            data.strategies.forEach(strat => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                let positionHTML = '';
+                if (strat.currentPosition) {
+                    const dirClass = strat.currentPosition.direction === 'short' ? 'short' : 'long';
+                    positionHTML = `
+                        <div class="positions">
+                            <strong>Open Position:</strong>
+                            <div class="position">
+                                <span>${strat.currentPosition.pair} <span class="${dirClass}">${strat.currentPosition.direction.toUpperCase()}</span></span>
+                                <span>$${strat.currentPosition.size.toFixed(2)} @ ${strat.currentPosition.leverage}x</span>
+                            </div>
+                            <div class="position">
+                                <span>Entry Price:</span>
+                                <span>$${strat.currentPosition.entryPrice}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                card.innerHTML = `
+                    <h3>Strategy ${strat.id} - ${strat.name.split(' - ')[1] || 'Trading'}</h3>
+                    <div class="balance">$${strat.balance.toLocaleString()}</div>
+                    <div style="margin-top: 8px; color: #64748b;">
+                        ${strat.trades} trades | ${strat.openPositions} open
+                    </div>
+                    ${positionHTML}
+                `;
+                
+                grid.appendChild(card);
+            });
+            
+            document.getElementById('content').innerHTML = '';
+            document.getElementById('content').appendChild(grid);
+        }
+        
+        loadData();
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
