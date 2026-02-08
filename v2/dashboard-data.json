@@ -1,0 +1,88 @@
+{
+  "timestamp": 1770440000000,
+  "strategies": [
+    {
+      "id": "A",
+      "name": "Strategy A - Mean Reversion",
+      "address": "0xc9DB0FaddED889f7EADeBD56ddf6e0594058F076",
+      "balance": 36500,
+      "pnl": 0,
+      "winRate": 0,
+      "trades": 0,
+      "openPositions": 0,
+      "lastTrade": null,
+      "currentPosition": null
+    },
+    {
+      "id": "B",
+      "name": "Strategy B - Funding Arb",
+      "address": "0x6399961f8CaFAA1c784f3211A069aBe284276729",
+      "balance": 36499.85,
+      "pnl": 0,
+      "winRate": 0,
+      "trades": 1,
+      "openPositions": 1,
+      "lastTrade": "2026-02-08T15:16:00Z",
+      "currentPosition": {
+        "pair": "ARB/USD",
+        "direction": "short",
+        "size": 920.27,
+        "leverage": 5,
+        "entryPrice": 0.119
+      }
+    },
+    {
+      "id": "C",
+      "name": "Strategy C - Momentum",
+      "address": "0x44Dfb735b11F5E1625fcAF365C24D8e1c3e63903",
+      "balance": 46500,
+      "pnl": 0,
+      "winRate": 0,
+      "trades": 0,
+      "openPositions": 0,
+      "lastTrade": null,
+      "currentPosition": null
+    },
+    {
+      "id": "D",
+      "name": "Strategy D - Hybrid",
+      "address": "0xED07C6487A188ad4bfa9f6317104Caa76fBEBC32",
+      "balance": 46500,
+      "pnl": 0,
+      "winRate": 0,
+      "trades": 0,
+      "openPositions": 0,
+      "lastTrade": null,
+      "currentPosition": null
+    }
+  ],
+  "trades": [
+    {
+      "id": "arb-short-001",
+      "strategy": "B",
+      "pair": "ARB/USD",
+      "type": "short",
+      "size": 920.27,
+      "pnl": 0,
+      "timestamp": "2026-02-08T15:16:00Z",
+      "status": "open",
+      "entryPrice": 0.119,
+      "txHash": "0x8c4...9cc75f"
+    }
+  ],
+  "pnlHistory": [
+    {
+      "timestamp": "2026-02-08",
+      "strategyA": 0,
+      "strategyB": 0,
+      "strategyC": 0,
+      "strategyD": 0,
+      "total": 0
+    }
+  ],
+  "fundingRates": [
+    { "pair": "ETH/USD", "longRate": -1.8, "shortRate": 1.8 },
+    { "pair": "BTC/USD", "longRate": -1.2, "shortRate": 1.2 },
+    { "pair": "ARB/USD", "longRate": 2.1, "shortRate": -2.1 }
+  ]
+}
