@@ -1,0 +1,45 @@
+{
+  "timestamp": 1770532720134,
+  "strategies": [
+    {
+      "id": "A",
+      "name": "Mean Reversion (Baseline)",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    },
+    {
+      "id": "B",
+      "name": "Funding Arbitrage",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    },
+    {
+      "id": "C",
+      "name": "Momentum Breakout",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    },
+    {
+      "id": "D",
+      "name": "Hybrid (Funding + Technicals)",
+      "trades": [],
+      "equityCurve": [],
+      "currentPosition": null,
+      "totalPnl": 0,
+      "winRate": 0,
+      "openPositions": 0
+    }
+  ]
+}
